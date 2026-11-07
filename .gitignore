@@ -1,0 +1,15 @@
+# Godot generated editor cache and import metadata
+.godot/
+.import/
+
+# Local Android builds and signing material
+*.apk
+*.aab
+*.keystore
+*.jks
+android/build/
+
+# OS and editor junk
+.DS_Store
+.idea/
+.vscode/
