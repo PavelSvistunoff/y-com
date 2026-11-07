@@ -17,6 +17,9 @@ var grid_height: int = 12
 var walls: Dictionary = {}
 var explored: Dictionary = {}
 var visible_tiles: Dictionary = {}
+var reachable: Dictionary = {}
+var preview_path: Array[Vector2i] = []
+var preview_target: int = -1
 var soldiers: Array[Dictionary] = []
 var aliens: Array[Dictionary] = []
 var selected_index: int = 0
@@ -139,6 +142,7 @@ func _refresh_ui() -> void:
         selected_label.text = "%s: %s\nHP %d   AP %d   %d/%d" % [
             Texts.t("selected"), selected["name"], selected["hp"], selected["ap"], selected["ammo"], MAX_AMMO]
         reload_button.disabled = int(selected["ap"]) < RELOAD_COST or int(selected["ammo"]) >= MAX_AMMO
+    _refresh_reachable()
     mode_label.text = "%s: %s" % [Texts.t("mode"), Texts.t(action_mode)]
     move_button.disabled = action_mode == "move"
     fire_button.disabled = action_mode == "fire"
@@ -182,6 +186,8 @@ func handle_board_tap(p: Vector2i) -> void:
     for index in range(soldiers.size()):
         if soldiers[index]["pos"] == p and int(soldiers[index]["hp"]) > 0:
             selected_index = index
+            preview_target = -1
+            preview_path.clear()
             _refresh_ui()
             return
     var soldier := _selected_soldier()
@@ -189,15 +195,25 @@ func handle_board_tap(p: Vector2i) -> void:
         return
     for index in range(aliens.size()):
         if aliens[index]["pos"] == p and int(aliens[index]["hp"]) > 0 and is_visible_tile(p):
-            _shoot(index)
+            if action_mode == "fire":
+                preview_path.clear()
+                _preview_or_shoot(index)
+            else:
+                preview_path.clear()
+                _log(Texts.t("blocked"))
+                _refresh_ui()
             return
     if action_mode == "move":
-        _move_to(p)
+        _preview_or_move(p)
     else:
+        preview_target = -1
         _log(Texts.t("out_of_range"))
+        board.queue_redraw()
 
 func _set_mode(value: String) -> void:
     action_mode = value
+    preview_target = -1
+    preview_path.clear()
     _refresh_ui()
 
 func _occupied(p: Vector2i, skip_alien: int = -1) -> bool:
@@ -212,33 +228,33 @@ func _occupied(p: Vector2i, skip_alien: int = -1) -> bool:
 func _in_bounds(p: Vector2i) -> bool:
     return p.x >= 0 and p.y >= 0 and p.x < grid_width and p.y < grid_height
 
-func _path(start: Vector2i, goal: Vector2i) -> Array[Vector2i]:
-    if not _in_bounds(goal) or walls.has(goal) or (goal != start and _occupied(goal)):
-        return []
-    var queue: Array[Vector2i] = [start]
-    var came_from: Dictionary = {start: start}
-    var cursor := 0
-    while cursor < queue.size():
-        var current: Vector2i = queue[cursor]
-        cursor += 1
-        if current == goal:
-            break
-        for delta in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
-            var next: Vector2i = current + delta
-            if not _in_bounds(next) or walls.has(next) or came_from.has(next) or (next != goal and _occupied(next)):
-                continue
-            came_from[next] = current
-            queue.append(next)
-    if not came_from.has(goal):
-        return []
-    var path: Array[Vector2i] = []
-    var at := goal
-    while at != start:
-        path.append(at)
-        at = came_from[at]
-    path.append(start)
-    path.reverse()
-    return path
+func _refresh_reachable() -> void:
+    reachable.clear()
+    var unit := _selected_soldier()
+    if unit.is_empty() or action_mode != "move":
+        return
+    var blocked := walls.duplicate()
+    for group in [soldiers, aliens]:
+        for other in group:
+            if int(other["hp"]) > 0 and other["pos"] != unit["pos"]:
+                blocked[other["pos"]] = true
+    # Restrict the entire route to currently visible tiles, so previews do not
+    # disclose hidden unit locations or route through unexplored obstacles.
+    reachable = RULES.reachable_paths(unit["pos"], grid_width, grid_height, blocked, visible_tiles, int(unit["ap"]) / MOVE_COST)
+
+func _preview_or_move(target: Vector2i) -> void:
+    var unit := _selected_soldier()
+    if unit.is_empty() or not reachable.has(target) or target == unit["pos"]:
+        preview_path.clear()
+        _log(Texts.t("blocked"))
+        _refresh_ui()
+        return
+    if not preview_path.is_empty() and preview_path.back() == target:
+        _move_to(target)
+        return
+    preview_path = RULES.route_to(unit["pos"], target, reachable)
+    _log(Texts.t("confirm_move") % ((preview_path.size() - 1) * MOVE_COST))
+    board.queue_redraw()
 
 func _move_to(target: Vector2i) -> void:
     if not is_visible_tile(target):
@@ -247,7 +263,8 @@ func _move_to(target: Vector2i) -> void:
     var unit := _selected_soldier()
     if unit.is_empty():
         return
-    var path := _path(unit["pos"], target)
+    _refresh_reachable()
+    var path := RULES.route_to(unit["pos"], target, reachable)
     if path.is_empty() or path.size() == 1:
         _log(Texts.t("blocked"))
         return
@@ -255,11 +272,35 @@ func _move_to(target: Vector2i) -> void:
     if cost > int(unit["ap"]):
         _log(Texts.t("not_enough_ap"))
         return
+    preview_path.clear()
     unit["pos"] = target
     unit["ap"] = int(unit["ap"]) - cost
     _refresh_visibility()
     _log("%s: %s (-%d AP)" % [unit["name"], Texts.t("move"), cost])
     _refresh_ui()
+
+func _preview_or_shoot(alien_index: int) -> void:
+    var unit := _selected_soldier()
+    var alien := aliens[alien_index]
+    if unit.is_empty():
+        return
+    if int(unit["ap"]) < FIRE_COST:
+        preview_target = -1
+        _log(Texts.t("not_enough_ap"))
+    elif int(unit["ammo"]) < 1:
+        preview_target = -1
+        _log(Texts.t("out_of_ammo"))
+    elif RULES.tile_distance(unit["pos"], alien["pos"]) > SHOT_RANGE or not RULES.line_of_sight(unit["pos"], alien["pos"], walls):
+        preview_target = -1
+        _log(Texts.t("out_of_range"))
+    elif preview_target == alien_index:
+        preview_target = -1
+        _shoot(alien_index)
+    else:
+        preview_target = alien_index
+        var chance: int = RULES.chance_to_hit(RULES.tile_distance(unit["pos"], alien["pos"]), RULES.adjacent_cover(alien["pos"], walls), 78)
+        _log(Texts.t("confirm_fire") % [chance, FIRE_COST])
+    board.queue_redraw()
 
 func _shoot(alien_index: int) -> void:
     var unit := _selected_soldier()
@@ -293,6 +334,8 @@ func _reload() -> void:
     var unit := _selected_soldier()
     if unit.is_empty() or int(unit["ap"]) < RELOAD_COST or int(unit["ammo"]) == MAX_AMMO:
         return
+    preview_path.clear()
+    preview_target = -1
     unit["ap"] = int(unit["ap"]) - RELOAD_COST
     unit["ammo"] = MAX_AMMO
     _log("%s: %s" % [unit["name"], Texts.t("reload")])
@@ -308,6 +351,8 @@ func _alive_count(group: Array[Dictionary]) -> int:
 func _end_turn() -> void:
     if ended:
         return
+    preview_path.clear()
+    preview_target = -1
     # Aliens use a simple deterministic pursuit rule with probabilistic combat.
     for alien_index in range(aliens.size()):
         var alien := aliens[alien_index]

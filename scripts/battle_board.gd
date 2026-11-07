@@ -25,6 +25,12 @@ func _draw() -> void:
             if not seen:
                 color = Color("122930") if explored else Color("07171c")
             draw_rect(r.grow(-1.0), color, true)
+            if battle.action_mode == "move" and battle.reachable.has(tile) and battle.selected_tile() != tile:
+                draw_rect(r.grow(-3.0), Color("3be4d844"), true)
+            if battle.preview_path.has(tile) and battle.selected_tile() != tile:
+                draw_rect(r.grow(-5.0), Color("e4d86c99"), true)
+            if battle.preview_target >= 0 and battle.aliens[battle.preview_target]["pos"] == tile:
+                draw_rect(r.grow(-2.0), Color("ffc36a"), false, 3.0)
             if battle.selected_tile() == tile:
                 draw_rect(r.grow(-2.0), Color("3be4d8"), false, 3.0)
     for unit in battle.soldiers:
@@ -48,10 +54,9 @@ func _draw_unit(unit: Dictionary, color: Color, is_soldier: bool) -> void:
     draw_string(ThemeDB.fallback_font, p + Vector2(-4.0, -tile_size * 0.31), hp, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 13, Color("ffffff"))
 
 func _gui_input(event: InputEvent) -> void:
-    if event is InputEventScreenTouch and event.pressed:
-        _handle_tap(event.position)
-        accept_event()
-    elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+    # Mouse emulation is enabled globally so ordinary Controls also accept touch.
+    # Handling the emulated mouse event only prevents duplicate actions per tap.
+    if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
         _handle_tap(event.position)
         accept_event()
 

@@ -6,6 +6,8 @@ const SAVE_PATH := "user://aegis_save.json"
 const FACILITY_COST := 120000
 const RESEARCH_GOAL := 100
 
+# Override for isolated tests; normal campaigns retain the original save path.
+var save_path: String = SAVE_PATH
 var day: int = 1
 var credits: int = 900000
 var materials: int = 0
@@ -93,14 +95,14 @@ func save_game() -> void:
         "research_progress": research_progress,
         "completed_research": completed_research,
     }
-    var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+    var file := FileAccess.open(save_path, FileAccess.WRITE)
     if file != null:
         file.store_string(JSON.stringify(data))
 
 func load_game() -> void:
-    if not FileAccess.file_exists(SAVE_PATH):
+    if not FileAccess.file_exists(save_path):
         return
-    var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
+    var file := FileAccess.open(save_path, FileAccess.READ)
     if file == null:
         return
     var parsed: Variant = JSON.parse_string(file.get_as_text())

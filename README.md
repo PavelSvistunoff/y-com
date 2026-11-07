@@ -9,11 +9,19 @@ A standalone, offline, turn-based tactics and strategy game for Android, inspire
 1. Install **Godot 4.7.2 Standard** (not the .NET editor).
 2. Clone this repository, then use **Import** in Godot and select `project.godot`.
 3. Press **F6** to preview the scene or **F5** to run the project.
-4. On the globe choose **Deploy Squad**. Tap a teal soldier to select them; tap a reachable tile to move or a visible orange alien to fire. Use **End Turn** to let enemies act. **Retreat** ends the mission as a defeat.
+4. On the globe choose **Deploy Squad**. Select a teal soldier, then tap a highlighted tile to preview a route and tap it again to move. Select **Fire**, then tap a visible orange alien to preview the hit chance and tap again to shoot. Use **End Turn** to let enemies act. **Retreat** ends the mission as a defeat.
 
 No downloads, external assets, API keys, login, networking, analytics or third-party plugins are needed to run the desktop prototype.
 
-Basic headless rule checks: `godot --headless --path . --script res://tests/tactics_test.gd` (requires an installed Godot executable).
+Headless checks (requires an installed Godot executable):
+
+```sh
+godot --headless --path . --editor --quit
+godot --headless --path . --script res://tests/tactics_test.gd
+godot --headless --path . --script res://tests/game_state_test.gd
+```
+
+The campaign test uses a separate temporary save file. See `DEVELOPMENT.md` for current tasks and validation blockers.
 
 ## Implemented vertical slice
 
@@ -22,6 +30,7 @@ Basic headless rule checks: `godot --headless --path . --script res://tests/tact
 - Research screen: start a project and progress it as days advance.
 - Tactical 16x12 battlefield with original procedural graphics, tap/click controls, three soldiers vs. three aliens.
 - Action points, BFS tile movement, walls, line of sight, fog of war, ranged combat, ammunition and reloads, simple enemy AI, wins/losses.
+- Reachable-tile highlights, route and hit-chance previews; these changes still require Godot and device validation.
 - Save/load strategic progress with `user://aegis_save.json`.
 - Ukrainian and English UI toggle (battle locked to one language during a mission).
 
@@ -51,6 +60,8 @@ scripts/battle_board.gd Procedural board renderer and touch handling
 scripts/tactics_rules.gd Pure rules (distance, visibility, accuracy)
 scripts/texts.gd        UK/EN strings
 tests/tactics_test.gd  Headless rules smoke tests
+tests/game_state_test.gd Campaign and save compatibility checks
+DEVELOPMENT.md          Milestones, open tasks and validation blockers
 SPEC.md                 Product scope and staged roadmap
 AGENTS.md               Instructions for Codex and contributors
 ```
