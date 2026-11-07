@@ -11,7 +11,10 @@ func check(condition: bool, description: String) -> void:
         push_error(description)
 
 func _initialize() -> void:
-    var path := "user://aegis_test_%d_%d.json" % [OS.get_process_id(), Time.get_ticks_usec()]
+    var test_dir := OS.get_environment("AEGIS_TEST_DIR")
+    if test_dir.is_empty():
+        test_dir = "user://"
+    var path := test_dir.path_join("aegis_test_%d_%d.json" % [OS.get_process_id(), Time.get_ticks_usec()])
     var state = STATE.new()
     state.save_path = path
 

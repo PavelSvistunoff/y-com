@@ -16,12 +16,13 @@ No downloads, external assets, API keys, login, networking, analytics or third-p
 Headless checks (requires an installed Godot executable):
 
 ```sh
-godot --headless --path . --editor --quit
+godot --headless --path . --import
 godot --headless --path . --script res://tests/tactics_test.gd
 godot --headless --path . --script res://tests/game_state_test.gd
+godot --headless --path . --script res://tests/gameplay_test.gd
 ```
 
-The campaign test uses a separate temporary save file. See `DEVELOPMENT.md` for current tasks and validation blockers.
+The campaign and gameplay tests use separate temporary save files. Set `AEGIS_TEST_DIR` to a writable directory to place them outside `user://`. See `DEVELOPMENT.md` for current tasks and validation blockers.
 
 ## Implemented vertical slice
 
@@ -30,7 +31,7 @@ The campaign test uses a separate temporary save file. See `DEVELOPMENT.md` for 
 - Research screen: start a project and progress it as days advance.
 - Tactical 16x12 battlefield with original procedural graphics, tap/click controls, three soldiers vs. three aliens.
 - Action points, BFS tile movement, walls, line of sight, fog of war, ranged combat, ammunition and reloads, simple enemy AI, wins/losses.
-- Reachable-tile highlights, route and hit-chance previews; these changes still require Godot and device validation.
+- Reachable-tile highlights, route and hit-chance previews; device validation is still required.
 - Save/load strategic progress with `user://aegis_save.json`.
 - Ukrainian and English UI toggle (battle locked to one language during a mission).
 
@@ -61,6 +62,7 @@ scripts/tactics_rules.gd Pure rules (distance, visibility, accuracy)
 scripts/texts.gd        UK/EN strings
 tests/tactics_test.gd  Headless rules smoke tests
 tests/game_state_test.gd Campaign and save compatibility checks
+tests/gameplay_test.gd Scene and gameplay smoke checks
 DEVELOPMENT.md          Milestones, open tasks and validation blockers
 SPEC.md                 Product scope and staged roadmap
 AGENTS.md               Instructions for Codex and contributors
